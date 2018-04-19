@@ -1,0 +1,44 @@
+version: '3'
+
+services:
+  nginx:
+    image: daocloud.io/library/nginx:1.13.0
+    container_name: ht_nginx
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/code
+      - ./config:/etc/nginx/conf.d
+    depends_on:
+      - web
+
+  db:
+    image: daocloud.io/library/mysql:5.7.21
+    container_name: ht_mysql
+    environment:
+      # set root user only access by localhost(in docker),
+      # if you want access database from your host machine, comment next line
+      - MYSQL_ROOT_HOST=localhost
+      - MYSQL_ROOT_PASSWORD=ht
+      # create new user, password and database
+      - MYSQL_USER=ht
+      - MYSQL_PASSWORD=ht
+      - MYSQL_DATABASE=ht
+    volumes:
+      - ./mysql:/var/lib/mysql/
+      - ./config/ht_mysql.cnf:/etc/mysql/conf.d/ht_mysql.cnf
+    ports:
+      - "8009:3306"
+
+  web:
+    build: .
+    container_name: ht_server
+    # wait-for.sh can ensure migration and running after mysql initialized
+    # reference https://docs.docker.com/compose/startup-order/
+    command: bash -c "python manage.py makemigrations && python manage.py migrate && gunicorn django_example.wsgi -b 0.0.0.0:8000"
+    volumes:
+      - .:/code
+    expose:
+      - "8000"
+    depends_on:
+      - db
